@@ -39,9 +39,11 @@ import {
     CONTRACT_TYPE_LPT,
     CONTRACT_TYPE_STAKE,
     CONTRACT_TYPE_SCS,
+    CONTRACT_TYPE_MP213,
 } from "./constants.js";
 import onARC72 from "./router/task/arc72.js";
 import onMP206 from "./router/task/mp206.js";
+import onMP213 from "./router/task/mp213.js";
 import onARC200 from "./router/task/arc200.js";
 import onDex from "./router/task/dex.js";
 import onStake from "./router/task/stake.js";
@@ -167,6 +169,11 @@ while (true) {
 	    console.log({contractType});
 
             switch (contractType) {
+		case CONTRACT_TYPE_MP213: {
+		    console.log("MP213", app, rnd);
+		    await onMP213(app, rnd);
+  		    break;
+		}
                 case CONTRACT_TYPE_SCS: {
                     console.log("SCS", app, rnd);
 		    await onSCS(app, rnd);

@@ -11,7 +11,10 @@ import { transfersEndpoint } from "./endpoints/arc72/transfers.js";
 import { collectionsEndpoint } from "./endpoints/arc72/collections.js";
 import { marketsEndpoint } from "./endpoints/mp/markets.js";
 import { listingsEndpoint } from "./endpoints/mp/listings.js";
+import { offersEndpoint } from "./endpoints/mp/offers.js";
 import { salesEndpoint } from "./endpoints/mp/sales.js";
+import { saleVolumesEndpoint } from "./endpoints/mp/volumes.js";
+import { mpStatsEndpoint } from "./endpoints/mp/stats.js";
 import { deletesEndpoint } from "./endpoints/mp/deletes.js";
 import { statsEndpoint } from "./endpoints/stats.js";
 import { contracts0200Endpoint } from "./endpoints/arc200/tokens.js";
@@ -20,7 +23,12 @@ import { prices0200Endpoint } from "./endpoints/arc200/prices.js";
 import { arc200TransfersEndpoint } from "./endpoints/arc200/transfers.js";
 import { approvals0200Endpoint } from "./endpoints/arc200/approvals.js";
 import { arc200TokenStubEndpoint } from "./endpoints/arc200/stubs.js";
+import { stats0200WVoiEndpoint } from "./endpoints/arc200/stats-wvoi.js";
+import { coingeckoTickerEndpoint } from "./endpoints/dex/cg-tickers.js";
+import { coingeckoHistoricalTradesEndpoint } from "./endpoints/dex/cg-historical-trades.js";
 import { dexPoolsEndpoint } from "./endpoints/dex/pools.js";
+import { dexSwapsEndpoint } from "./endpoints/dex/swaps.js";
+import { dexPricesEndpoint } from "./endpoints/dex/prices.js";
 import { dexPoolStubEndpoint } from "./endpoints/dex/stubs.js";
 import { stakePoolsEndpoint } from "./endpoints/stake/pools.js";
 import { stakeAccountsEndpoint } from "./endpoints/stake/accounts.js";
@@ -59,8 +67,20 @@ const endpoints = [
     handler: listingsEndpoint,
   },
   {
+    path: "/nft-indexer/v1/mp/offers",
+    handler: offersEndpoint,
+  },
+  {
     path: "/nft-indexer/v1/mp/sales",
     handler: salesEndpoint,
+  }, 
+  {
+    path: "/nft-indexer/v1/mp/volumes",
+    handler: saleVolumesEndpoint,
+  },
+  {
+    path: "/nft-indexer/v1/mp/stats",
+    handler: mpStatsEndpoint,
   },
   {
     path: "/nft-indexer/v1/mp/deletes",
@@ -87,12 +107,36 @@ const endpoints = [
     handler: arc200TokenStubEndpoint,
   },
   {
+    path: "/nft-indexer/v1/arc200/stats/wvoi",
+    handler: stats0200WVoiEndpoint,
+  },
+  {
     path: "/nft-indexer/v1/arc200/transfers",
     handler: arc200TransfersEndpoint,
   },
   {
+    path: "/integrations/coingecko/tickers",
+    handler: coingeckoTickerEndpoint,
+  },
+  {
+    path: "/integrations/coingecko/historical_trades",
+    handler: coingeckoHistoricalTradesEndpoint, 
+  },
+  {
+    path: "/integrations/coingecko/historical",
+    handler: coingeckoHistoricalTradesEndpoint,
+  },
+  {
     path: "/nft-indexer/v1/dex/pools",
     handler: dexPoolsEndpoint,
+  },
+  {
+    path: "/nft-indexer/v1/dex/swaps",
+    handler: dexSwapsEndpoint,
+  },
+  {
+    path: "/nft-indexer/v1/dex/prices",
+    handler: dexPricesEndpoint,
   },
   {
     path: "/nft-indexer/v1/dex/stubs/pool",

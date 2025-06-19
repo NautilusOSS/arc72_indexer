@@ -144,6 +144,7 @@ query += `
 FROM 
     contracts_0200 c
 `;
+
 if(includes.includes('all') || includes.includes("tokens")) {
 query += `
 LEFT JOIN 

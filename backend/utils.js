@@ -11,6 +11,7 @@ import {
     CONTRACT_TYPE_LPT,
     CONTRACT_TYPE_STAKE,
     CONTRACT_TYPE_SCS,
+    CONTRACT_TYPE_MP213,
 } from "./constants.js";
 import Database from "./database.js";
 import dotenv from "dotenv";
@@ -210,10 +211,13 @@ export async function getContractType(app) {
     // check simulate supportsInterface
     // check simulate other
     // skip potentially harmful contracts
-    if([
+    if([8329112].includes(app.apid)) {
+	    return CONTRACT_TYPE_MP213;
+    }
+    else if([
 	"13d9b75afb30e9bc7639237e003257e51f7739900df49dd1c4eb55e918f854fb" // nomadex ARC200
     ].includes(hash)) return CONTRACT_TYPE_ARC200; 
-    if([
+    else if([
 	"1da34c4d6eedce49b3795a3ee5040d32039d206ca55d0d7b2db179c995c3f381",
 	"cdcee196cdf3cf3a0bedc9f742f41fb8cb28241774e18219cacbedeca3718123",
 	"1365fd96882cef38c711ca95a04f8b933ca151ad6a2470dae62c3036bfdd8147"

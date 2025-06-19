@@ -1,10 +1,14 @@
-const appApprovalHash = [
- "d71decf73ba8c1c5e34f7a124e1e7b393667fcae2d0f76f9d7b7217d53d5eab4",
- "f02f1c32c13b6dccd77bf9eeb65640aa67c22645e3a5d4b4133973248e4087c1"
-];
+const zeroAddress =
+  "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAY5HFKQ";
+
+function intersect(a, b) {
+  var setB = new Set(b);
+  return [...new Set(a)].filter(x => setB.has(x));
+}
+
 /**
  * @swagger
- * /nft-indexer/v1/arc200/stubs/token:
+ * /nft-indexer/v1/dex/prices:
  *  get:
  *   summary: Retrieves arc200 token data
  *   description: Fetch arc200 token details based on query parameters (this is a NON-STANDARD endpoint)
@@ -71,7 +75,7 @@ const appApprovalHash = [
  *       description: Server error
  */
 
-export const arc200TokenStubEndpoint = async (req, res, db) => {
+export const dexPricesEndpoint = async (req, res, db) => {
   res.header("Access-Control-Allow-Origin", "*");
   res.header("Response-Type", "application/json");
 
@@ -90,25 +94,18 @@ export const arc200TokenStubEndpoint = async (req, res, db) => {
   });
 
   // Extract query parameters
+
+  /*
+  const transactionId = req.query.transactionId;
   const contractId = req.query.contractId;
-  const hash = req.query["hash"]; // app approval hash
-  const active = req.query.active;
+  const timestamp = req.query.timestamp;
+  const minTimestamp = req.query["min-timestamp"] ?? 0;
+  const maxTimestamp = req.query["max-timestamp"];
+  const tokenId = req.query["tokenId"];
   const creator = req.query.creator;
+  */
   const next = req.query.next ?? 0;
   const limit = req.query.limit;
-
-  const sortBy = req.query.sort_by || 'contractId'; // Default sort field
-  const sortOrder = req.query.sort_order || 'desc'; // Default sort order
-
-  // Sanitize input to prevent SQL injection
-  const validSortFields = ['contractId', 'creator'];
-  if (!validSortFields.includes(sortBy)) {
-        return res.status(400).send('Invalid sort field');
-  }
-
-  if (!['asc', 'desc'].includes(sortOrder)) {
-        return res.status(400).send('Invalid sort order');
-  }
 
   // Construct SQL query
 
@@ -117,45 +114,39 @@ export const arc200TokenStubEndpoint = async (req, res, db) => {
   let params = {};
  
     query += `
-    select p.*
-    from contract_stubs p
+SELECT 
+    p.poolId,
+    p.contractId,
+    p.symbolA,
+    p.symbolB,
+    p.poolBalA,
+    p.poolBalB,
+    CASE 
+        WHEN p.symbolA = 'VOI' THEN CAST(p.poolBalB AS REAL) / NULLIF(CAST(p.poolBalA AS REAL), 0)
+        ELSE CAST(p.poolBalA AS REAL) / NULLIF(CAST(p.poolBalB AS REAL), 0)
+    END AS price
+FROM dex_pool p
+JOIN contracts_0200 a ON p.tokAId = a.contractId
+JOIN contracts_0200 b ON p.tokBId = b.contractId
+WHERE p.tokAId = '390001' OR p.tokBId = '390001';
     `;
 
+  /*
   if (contractId) {
-    conditions.push(`p.contractId = $contractId`);
+    conditions.push(`e.contractId = $contractId`);
     params.$contractId = contractId;
-  }
-
-  if (hash) {
-    conditions.push(`p.hash = $hash`);
-    params.$hash = hash;
-  } else {
-    conditions.push(`p.hash like $appApprovalHash OR p.hash like $appApprovalHash2`);
-    params.$appApprovalHash = appApprovalHash[0];
-    params.$appApprovalHash2 = appApprovalHash[1];
-  }
-
-  if (active) {
-    conditions.push(`p.active = $active`);
-    params.$active = active;
-  }
-
-  if (creator) {
-    conditions.push(`p.creator = $creator`);
-    params.$creator = creator;
-  }
-
-  if (next) {
-    conditions.push(`p.createRound >= $next`);
-    params.$next = next;
   }
 
   if (conditions.length > 0) {
     query += ` WHERE ` + conditions.join(" AND ");
   }
+  */
 
+  query += `
+GROUP BY p.poolId, p.contractId, p.symbolA, p.symbolB, p.poolBalA, p.poolBalB
+  `;
 
-  query += ` ORDER BY ${sortBy} ${sortOrder.toUpperCase()}`
+  query += ` ORDER BY p.poolId`;
 
   if (limit) {
     query += ` LIMIT $limit`;
@@ -168,6 +159,8 @@ export const arc200TokenStubEndpoint = async (req, res, db) => {
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i];
     row.contractId = Number(row.contractId);
+    delete row.lastSyncRound;
+    delete row.createRound;
   }
 
   // get round of last row
@@ -176,7 +169,7 @@ export const arc200TokenStubEndpoint = async (req, res, db) => {
     maxRound = rows[rows.length - 1].mintRound;
   }
 
-  response["stubs"] = rows;
+  response["prices"] = rows;
   response["next-token"] = maxRound + 1;
   res.status(200).json(response);
 

@@ -162,6 +162,56 @@ CREATE INDEX IF NOT EXISTS idx_deletes_round ON deletes(round);
 CREATE INDEX IF NOT EXISTS idx_deletes_timestamp ON deletes(timestamp);
 
 ------------------------------------------
+-- Marketplace Offers
+------------------------------------------
+
+CREATE TABLE IF NOT EXISTS offer_listings (
+    transactionId TEXT PRIMARY KEY,
+    mpContractId TEXT,
+    mpListingId TEXT,
+    contractId TEXT,
+    tokenId TEXT,
+    offerer TEXT,
+    price TEXT,
+    currency TEXT,
+    createRound INTEGER,
+    createTimestamp INTEGER,
+    accept_id TEXT,
+    delete_id TEXT,
+    FOREIGN KEY (contractId, tokenId) REFERENCES tokens (contractId, tokenId),
+    FOREIGN KEY (contractId) REFERENCES collections (contractId),
+    FOREIGN KEY (accept_id) REFERENCES offer_accepts (transactionId),
+    FOREIGN KEY (delete_id) REFERENCES offer_deletes (transactionId)
+);
+
+CREATE TABLE IF NOT EXISTS offer_accepts (
+    transactionId TEXT PRIMARY KEY,
+    mpContractId TEXT,
+    mpListingId TEXT,
+    contractId TEXT,
+    tokenId TEXT,
+    accepter TEXT,
+    round INTEGER,
+    timestamp INTEGER,
+    FOREIGN KEY (contractId, tokenId) REFERENCES tokens (contractId, tokenId),
+    FOREIGN KEY (contractId) REFERENCES collections (contractId)
+);
+
+CREATE TABLE IF NOT EXISTS offer_deletes (
+    transactionId TEXT PRIMARY KEY,
+    mpContractId TEXT,
+    mpListingId TEXT,
+    contractId TEXT,
+    tokenId TEXT,
+    deleter TEXT,
+    round INTEGER,
+    timestamp INTEGER,
+    FOREIGN KEY (contractId, tokenId) REFERENCES tokens (contractId, tokenId),
+    FOREIGN KEY (contractId) REFERENCES collections (contractId)
+);
+
+
+------------------------------------------
 -- ARC-0200 Contract Tables
 ------------------------------------------
 

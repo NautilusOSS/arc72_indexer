@@ -3,7 +3,7 @@ const zeroAddress =
 
 /**
  * @swagger
- * /nft-indexer/v1/arc200/balances:
+ * /nft-indexer/v1/stats/arc200/wvoi:
  *  get:
  *   summary: Retrieves arc200 token balance data
  *   description: Fetch arc200 token details based on query parameters (this is a NON-STANDARD endpoint)
@@ -39,7 +39,7 @@ const zeroAddress =
  *     500:
  *       description: Server error
  */
-export const accounts0200Endpoint = async (req, res, db) => {
+export const stats0200WVoiEndpoint = async (req, res, db) => {
   res.header("Access-Control-Allow-Origin", "*");
   res.header("Response-Type", "application/json");
 
@@ -57,100 +57,39 @@ export const accounts0200Endpoint = async (req, res, db) => {
     };
   });
 
-  // Extract query parameters
-  const contractId = req.query.contractId;
-  const accountId = req.query.accountId;
-  const next = req.query.next ?? 0;
-  const limit = req.query.limit 
-  const offset = req.query.offset 
-
-  // "includes" is a query parameter that can be used to include additional data in the response
-  const includes = req.query.includes?.split(",") ?? [];
-
-  // Construct SQL query
-
     let query;
     query = `
-SELECT
-  ab.contractId,
-  ab.accountId,
-  ab.balance, -- Keeping balance as TEXT in the SELECT statement
-  t.symbol,
-  t.decimals,
-  v.verified,
-  r.tokenId,
-  COUNT(*) OVER () AS total_results
-FROM
-  account_balances_0200 ab
-LEFT JOIN 
-    contracts_0200 t
-ON
-    ab.contractId = t.contractId 
-LEFT JOIN
-    verification_requests v
+SELECT 
+    ab.contractId,
+    COUNT(ab.accountId) AS account_count,
+    CAST(CAST(SUM(CAST(ab.balance AS REAL)) AS INTEGER) AS TEXT) AS adjusted_total_balance
+FROM 
+    account_balances_0200 AS ab
+JOIN 
+    contract_tokens_0200 AS ct
 ON 
-    CAST(ab.contractId AS TEXT) = v.assetId
-LEFT JOIN 
-    (SELECT 
-        r.contractId, 
-        GROUP_CONCAT(r.tokenId) AS tokenId
-     FROM
-        contract_tokens_0200 r 
-     GROUP BY  
-        r.contractId) r
-ON 
-    ab.contractId = r.contractId
+    ab.contractId = ct.contractId
+WHERE 
+    ct.tokenId = "0" AND
+    SUBSTR(ab.balance, 1, 15) != '115792089237316'
+GROUP BY 
+    ab.contractId;
+
 `;
 
-    let conditions = [];
-    let params = {};
+  let conditions = [];
+  let params = {};
 
-    if (contractId) {
-      conditions.push(`ab.contractId = $contractId`);
-      params.$contractId = contractId;
-    }
-
-    if (accountId) {
-      conditions.push(`ab.accountId = $accountId`);
-      params.$accountId = accountId;
-    }
-
-    if (conditions.length > 0) {
-      query += ` WHERE ` + conditions.join(" AND ");
-    }
-
-    query += ` ORDER BY ab.contractId, CAST(ab.balance AS NUMERIC) DESC `
-
-    if (limit) {
-      query += ` LIMIT $limit`;
-      params.$limit = limit;
-      if(offset) {
-        query += ` OFFSET $offset`;
-        params.$offset = offset;
-	
-      }
-    }
 
   // Execute query
   const rows = await db.all(query, params);
 
-  let total = 0;
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i];
     row.contractId = Number(row.contractId);
-    if(!total) total = Number(row.total_results);
-    delete row.total_results;
   }
 
-  // get round of last row
-  let maxRound = 0;
-  if (rows.length > 0) {
-    maxRound = rows[rows.length - 1].mintRound;
-  }
-
-  response["balances"] = rows;
-  response["next-token"] = maxRound + 1;
-  response["total"] = total;
+  response["tokens"] = rows;
 
   res.status(200).json(response);
 

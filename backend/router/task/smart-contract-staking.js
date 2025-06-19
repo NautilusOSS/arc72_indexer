@@ -390,7 +390,8 @@ const doIndex = async (app, round) => {
     console.log({update});
     await db.insertOrUpdateSCS(update);
      const events = await ci.getEvents({
-      minRound: lastSyncRound,
+      //minRound: lastSyncRound,
+      minRound: round,
       maxRound: round,
     });
     console.log(events)
@@ -589,7 +590,8 @@ const doIndex = async (app, round) => {
 
   if (lastSyncRound <= round) {
     const events = await ci.getEvents({
-      minRound: lastSyncRound,
+      //minRound: lastSyncRound,
+      minRound: round,
       maxRound: round,
     });
     console.log(events)
