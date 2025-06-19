@@ -1,0 +1,18 @@
+{
+  "schema_version": "v1",
+  "name_for_human": "ARC-72 NFT Indexer",
+  "name_for_model": "arc72_nft_indexer",
+  "description_for_human": "Access comprehensive ARC-72 NFT data including collections, tokens, transfers, marketplace listings, ARC-200 tokens, DEX pools, and staking information on the Algorand blockchain.",
+  "description_for_model": "This plugin provides access to ARC-72 NFT data on the Algorand blockchain. It can retrieve NFT collections, individual tokens, transfer history, marketplace listings and sales, ARC-200 token data, DEX pool information, and staking data. Use this when users ask about NFTs, blockchain data, or need to query specific NFT collections, tokens, or market activity.",
+  "auth": {
+    "type": "none"
+  },
+  "api": {
+    "type": "openapi",
+    "url": "https://mainnet-idx.nautilus.sh/openapi.yaml",
+    "is_user_authenticated": false
+  },
+  "logo_url": "https://mainnet-idx.nautilus.sh/static/logo-color.png",
+  "contact_email": "support@nautilus.sh",
+  "legal_info_url": "https://github.com/xarmian/arc72_indexer"
+} 

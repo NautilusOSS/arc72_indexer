@@ -1,0 +1,799 @@
+openapi: 3.0.0
+info:
+  title: ARC-72 NFT Indexer API
+  description: |
+    This is an API for accessing ARC-72 NFT data based on the ARC-74 indexer specification.
+    The API provides comprehensive access to NFT collections, tokens, transfers, marketplace data,
+    ARC-200 token data, DEX pools, and staking information on the Algorand blockchain.
+    
+    For more information about ARC-72, please refer to the ARC-74 specification at 
+    https://arc.algorand.foundation/ARCs/arc-0074
+    
+    The endpoints described below are under active development and may change without notice.
+    Data is provided for informational purposes only and may not be accurate or complete. Use at your own risk.
+    
+    Note: The current server points to the Mainnet Network.
+    
+    The full source and additional links are available at 
+    https://github.com/xarmian/arc72_indexer
+    
+    A reference application is available at https://nftnavigator.xyz with source
+    available at https://github.com/xarmian/nft_navigator
+  version: 1.0.0
+servers:
+  - url: https://mainnet-idx.nautilus.sh
+    description: Mainnet Server
+
+components:
+  schemas:
+    Token:
+      type: object
+      properties:
+        owner:
+          type: string
+          description: The current owner of the NFT
+        approved:
+          type: string
+          description: The address that is approved to transfer the NFT
+        contractId:
+          type: integer
+          description: The ID of the ARC-72 contract that defines the NFT
+        tokenId:
+          type: integer
+          description: The tokenID of the NFT, which along with the contractId addresses a unique ARC-72 token
+        mintRound:
+          type: integer
+          description: The round at which the NFT was minted
+        metadataURI:
+          type: string
+          description: The URI given for the token by the metadataURI API of the contract
+        metadata:
+          type: string
+          description: The cached metadata of the NFT, should be JSON
+      required:
+        - contractId
+        - tokenId
+
+    Transfer:
+      type: object
+      properties:
+        contractId:
+          type: string
+          description: The ID of the ARC-72 contract that defines the NFT
+        tokenId:
+          type: string
+          description: The tokenID of the NFT, which along with the contractId addresses a unique ARC-72 token
+        from:
+          type: string
+          description: The sender of the transaction
+        to:
+          type: string
+          description: The receiver of the transaction
+        round:
+          type: integer
+          description: The round of the transfer
+        transactionId:
+          type: string
+          description: The unique identifier of the transaction
+        timestamp:
+          type: integer
+          format: int64
+          description: Timestamp of the transaction
+      required:
+        - contractId
+        - tokenId
+        - from
+        - to
+
+    Collection:
+      type: object
+      properties:
+        contractId:
+          type: string
+          description: The ID of the ARC-72 contract that defines the NFT collection
+        totalSupply:
+          type: integer
+          description: The total number of tokens minted by the contract
+        mintRound:
+          type: integer
+          description: The round at which the NFT collection contract was created
+        firstToken:
+          $ref: '#/components/schemas/Token'
+          description: The first token in the collection, null if the collection is empty
+        globalState:
+          type: array
+          description: Array of global state key-value pairs
+        isBlacklisted:
+          type: boolean
+          description: Whether the collection is blacklisted
+        creator:
+          type: string
+          description: The address of the creator of the collection
+      required:
+        - contractId
+
+    Listing:
+      type: object
+      properties:
+        transactionId:
+          type: string
+          description: The transaction ID of the listing
+        mpContractId:
+          type: string
+          description: The ID of a Marketplace contract
+        mpListingId:
+          type: string
+          description: The ID of a listing in the marketplace
+        collectionId:
+          type: string
+          description: The contract ID of the collection being listed
+        tokenId:
+          type: string
+          description: The ID of the token being listed
+        seller:
+          type: string
+          description: The address of the seller
+        escrowAddr:
+          type: string
+          description: The escrow address of the marketplace contract
+        price:
+          type: integer
+          description: The price of the listing
+        currency:
+          type: string
+          description: The currency of the listing, 0 = Native Token, otherwise ASA or ARC-200 token ID
+        createRound:
+          type: integer
+          description: The round the listing was created
+        createTimestamp:
+          type: integer
+          description: The timestamp when the listing was created
+        royalty:
+          type: integer
+          description: The royalty for the listing
+        token:
+          $ref: '#/components/schemas/Token'
+          description: The token being listed
+      required:
+        - transactionId
+        - collectionId
+        - tokenId
+
+    Sale:
+      type: object
+      properties:
+        transactionId:
+          type: string
+          description: The transaction ID of the sale
+        mpContractId:
+          type: string
+          description: The ID of a Marketplace contract
+        mpListingId:
+          type: string
+          description: The ID of a listing in the marketplace
+        collectionId:
+          type: string
+          description: The contract ID of the collection being sold
+        tokenId:
+          type: string
+          description: The ID of the token being sold
+        seller:
+          type: string
+          description: The address of the seller
+        buyer:
+          type: string
+          description: The address of the buyer
+        price:
+          type: integer
+          description: The price of the sale
+        currency:
+          type: string
+          description: The currency of the sale, 0 = Native Token, otherwise ASA or ARC-200 token ID
+        round:
+          type: integer
+          description: The round of the sale
+        createTimestamp:
+          type: integer
+          description: The timestamp of the sale
+        listing:
+          $ref: '#/components/schemas/Listing'
+          description: The listing of the sale
+      required:
+        - transactionId
+        - collectionId
+        - tokenId
+        - seller
+        - buyer
+
+    ARC200Approval:
+      type: object
+      properties:
+        contractId:
+          type: integer
+          description: The ID of the ARC-200 contract
+        owner:
+          type: string
+          description: The address of the token owner
+        spender:
+          type: string
+          description: The address approved to spend tokens
+        amount:
+          type: string
+          description: The amount approved for spending
+        mintRound:
+          type: integer
+          description: The round when the approval was created
+      required:
+        - contractId
+        - owner
+        - spender
+
+    ARC200Transfer:
+      type: object
+      properties:
+        contractId:
+          type: integer
+          description: The ID of the ARC-200 contract
+        sender:
+          type: string
+          description: The address of the sender
+        receiver:
+          type: string
+          description: The address of the receiver
+        amount:
+          type: string
+          description: The amount transferred
+        round:
+          type: integer
+          description: The round of the transfer
+        timestamp:
+          type: integer
+          description: Timestamp of the transfer
+      required:
+        - contractId
+        - sender
+        - receiver
+
+    DEXPool:
+      type: object
+      properties:
+        contractId:
+          type: integer
+          description: The ID of the DEX pool contract
+        tokAId:
+          type: integer
+          description: The ID of token A in the pool
+        tokBId:
+          type: integer
+          description: The ID of token B in the pool
+        tokADecimals:
+          type: integer
+          description: The decimals of token A
+        tokBDecimals:
+          type: integer
+          description: The decimals of token B
+        tvl:
+          type: number
+          description: Total Value Locked in the pool
+        createRound:
+          type: integer
+          description: The round when the pool was created
+        creator:
+          type: string
+          description: The address of the pool creator
+      required:
+        - contractId
+        - tokAId
+        - tokBId
+
+    StakeAccount:
+      type: object
+      properties:
+        contractId:
+          type: integer
+          description: The ID of the staking contract
+        poolId:
+          type: integer
+          description: The ID of the staking pool
+        accountId:
+          type: string
+          description: The address of the staking account
+        userStakeAmount:
+          type: string
+          description: The amount staked by the user
+        providerAccountId:
+          type: string
+          description: The address of the pool provider
+        stakeTokenId:
+          type: integer
+          description: The ID of the staking token
+        allStakeAmount:
+          type: string
+          description: The total amount staked in the pool
+        start:
+          type: integer
+          description: The start round of the staking period
+        end:
+          type: integer
+          description: The end round of the staking period
+        createRound:
+          type: integer
+          description: The round when the stake was created
+        rewardTokenIds:
+          type: string
+          description: Comma-separated list of reward token IDs
+        rewardAmounts:
+          type: string
+          description: Comma-separated list of reward amounts
+        rewardRemainings:
+          type: string
+          description: Comma-separated list of remaining rewards
+        stakeOwnershipPercentage:
+          type: number
+          description: The percentage of the pool owned by the user
+        maxUserRewardRemaining:
+          type: number
+          description: The maximum remaining reward for the user
+      required:
+        - contractId
+        - poolId
+        - accountId
+
+    StakePool:
+      type: object
+      properties:
+        contractId:
+          type: integer
+          description: The ID of the staking contract
+        poolId:
+          type: integer
+          description: The ID of the staking pool
+        providerAccountId:
+          type: string
+          description: The address of the pool provider
+        stakeTokenId:
+          type: integer
+          description: The ID of the staking token
+        stakedAmount:
+          type: string
+          description: The total amount staked in the pool
+        start:
+          type: integer
+          description: The start round of the staking period
+        end:
+          type: integer
+          description: The end round of the staking period
+        createRound:
+          type: integer
+          description: The round when the pool was created
+        rewardTokenIds:
+          type: string
+          description: Comma-separated list of reward token IDs
+        rewardAmounts:
+          type: string
+          description: Comma-separated list of reward amounts
+        rewardRemainings:
+          type: string
+          description: Comma-separated list of remaining rewards
+      required:
+        - contractId
+        - poolId
+
+paths:
+  /nft-indexer/v1/tokens:
+    get:
+      operationId: getTokens
+      summary: Get ARC-72 tokens
+      description: Retrieve ARC-72 NFT tokens based on query parameters
+      parameters:
+        - name: contractId
+          in: query
+          description: Filter by contract ID
+          schema:
+            type: integer
+        - name: tokenId
+          in: query
+          description: Filter by token ID
+          schema:
+            type: integer
+        - name: owner
+          in: query
+          description: Filter by owner address
+          schema:
+            type: string
+        - name: limit
+          in: query
+          description: Maximum number of results to return
+          schema:
+            type: integer
+            default: 100
+        - name: next
+          in: query
+          description: Token for pagination
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  tokens:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Token'
+                  current-round:
+                    type: integer
+                  next-token:
+                    type: string
+
+  /nft-indexer/v1/transfers:
+    get:
+      operationId: getTransfers
+      summary: Get ARC-72 transfers
+      description: Retrieve ARC-72 NFT transfer data
+      parameters:
+        - name: contractId
+          in: query
+          description: Filter by contract ID
+          schema:
+            type: string
+        - name: tokenId
+          in: query
+          description: Filter by token ID
+          schema:
+            type: string
+        - name: from
+          in: query
+          description: Filter by sender address
+          schema:
+            type: string
+        - name: to
+          in: query
+          description: Filter by receiver address
+          schema:
+            type: string
+        - name: limit
+          in: query
+          description: Maximum number of results to return
+          schema:
+            type: integer
+            default: 100
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  transfers:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Transfer'
+                  current-round:
+                    type: integer
+
+  /nft-indexer/v1/collections:
+    get:
+      operationId: getCollections
+      summary: Get ARC-72 collections
+      description: Retrieve ARC-72 NFT collection data
+      parameters:
+        - name: contractId
+          in: query
+          description: Filter by contract ID
+          schema:
+            type: string
+        - name: creator
+          in: query
+          description: Filter by creator address
+          schema:
+            type: string
+        - name: limit
+          in: query
+          description: Maximum number of results to return
+          schema:
+            type: integer
+            default: 100
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  collections:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Collection'
+                  current-round:
+                    type: integer
+
+  /nft-indexer/v1/mp/listings:
+    get:
+      operationId: getListings
+      summary: Get marketplace listings
+      description: Retrieve NFT marketplace listings
+      parameters:
+        - name: collectionId
+          in: query
+          description: Filter by collection ID
+          schema:
+            type: string
+        - name: tokenId
+          in: query
+          description: Filter by token ID
+          schema:
+            type: string
+        - name: seller
+          in: query
+          description: Filter by seller address
+          schema:
+            type: string
+        - name: limit
+          in: query
+          description: Maximum number of results to return
+          schema:
+            type: integer
+            default: 100
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  listings:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Listing'
+                  current-round:
+                    type: integer
+
+  /nft-indexer/v1/mp/sales:
+    get:
+      operationId: getSales
+      summary: Get marketplace sales
+      description: Retrieve NFT marketplace sales data
+      parameters:
+        - name: collectionId
+          in: query
+          description: Filter by collection ID
+          schema:
+            type: string
+        - name: tokenId
+          in: query
+          description: Filter by token ID
+          schema:
+            type: string
+        - name: seller
+          in: query
+          description: Filter by seller address
+          schema:
+            type: string
+        - name: buyer
+          in: query
+          description: Filter by buyer address
+          schema:
+            type: string
+        - name: limit
+          in: query
+          description: Maximum number of results to return
+          schema:
+            type: integer
+            default: 100
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sales:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Sale'
+                  current-round:
+                    type: integer
+
+  /nft-indexer/v1/arc200/tokens:
+    get:
+      operationId: getARC200Tokens
+      summary: Get ARC-200 tokens
+      description: Retrieve ARC-200 token data
+      parameters:
+        - name: contractId
+          in: query
+          description: Filter by contract ID
+          schema:
+            type: integer
+        - name: holder
+          in: query
+          description: Filter by holder address
+          schema:
+            type: string
+        - name: limit
+          in: query
+          description: Maximum number of results to return
+          schema:
+            type: integer
+            default: 100
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  tokens:
+                    type: array
+                    items:
+                      type: object
+                  current-round:
+                    type: integer
+
+  /nft-indexer/v1/arc200/transfers:
+    get:
+      operationId: getARC200Transfers
+      summary: Get ARC-200 transfers
+      description: Retrieve ARC-200 token transfer data
+      parameters:
+        - name: contractId
+          in: query
+          description: Filter by contract ID
+          schema:
+            type: integer
+        - name: sender
+          in: query
+          description: Filter by sender address
+          schema:
+            type: string
+        - name: receiver
+          in: query
+          description: Filter by receiver address
+          schema:
+            type: string
+        - name: limit
+          in: query
+          description: Maximum number of results to return
+          schema:
+            type: integer
+            default: 100
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  transfers:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ARC200Transfer'
+                  current-round:
+                    type: integer
+
+  /nft-indexer/v1/dex/pools:
+    get:
+      operationId: getDEXPools
+      summary: Get DEX pools
+      description: Retrieve DEX pool information
+      parameters:
+        - name: contractId
+          in: query
+          description: Filter by pool contract ID
+          schema:
+            type: integer
+        - name: tokenId
+          in: query
+          description: Filter by token ID (either token A or B)
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          description: Maximum number of results to return
+          schema:
+            type: integer
+            default: 100
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  pools:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/DEXPool'
+                  current-round:
+                    type: integer
+
+  /nft-indexer/v1/stake/accounts:
+    get:
+      operationId: getStakeAccounts
+      summary: Get staking accounts
+      description: Retrieve staking account information
+      parameters:
+        - name: accountId
+          in: query
+          required: true
+          description: The staking account address
+          schema:
+            type: string
+        - name: contractId
+          in: query
+          description: Filter by contract ID
+          schema:
+            type: integer
+        - name: poolId
+          in: query
+          description: Filter by pool ID
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          description: Maximum number of results to return
+          schema:
+            type: integer
+            default: 100
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  accounts:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/StakeAccount'
+                  current-round:
+                    type: integer
+
+  /nft-indexer/v1/stake/pools:
+    get:
+      operationId: getStakePools
+      summary: Get staking pools
+      description: Retrieve staking pool information
+      parameters:
+        - name: contractId
+          in: query
+          description: Filter by contract ID
+          schema:
+            type: integer
+        - name: poolId
+          in: query
+          description: Filter by pool ID
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          description: Maximum number of results to return
+          schema:
+            type: integer
+            default: 100
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  pools:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/StakePool'
+                  current-round:
+                    type: integer 

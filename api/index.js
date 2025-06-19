@@ -2,6 +2,7 @@ import express from "express";
 import swaggerJsDoc from "swagger-jsdoc";
 import swaggerUi from "swagger-ui-express";
 import https from "https";
+import path from "path";
 import { swaggerOptions } from "./swagger.js";
 import minimist from "minimist"; // import minimist to parse command line arguments
 import fs from "fs";
@@ -44,6 +45,16 @@ const app = express();
 const args = minimist(process.argv.slice(2));
 
 const port = args.p || process.env.API_SERVER_PORT || 3000;
+
+// Serve .well-known and openapi.yaml as static files for OpenAI plugin discovery
+app.use(
+  "/.well-known",
+  express.static(path.join(process.cwd(), "api/.well-known"))
+);
+app.use(
+  "/openapi.yaml",
+  express.static(path.join(process.cwd(), "api/openapi.yaml"))
+);
 
 const endpoints = [
   {
@@ -183,6 +194,8 @@ if (!args.https) {
   app.listen(port, () => {
     console.log(`Indexer API Server listening at http://localhost:${port}`);
     console.log(`API Docs: http://localhost:${port}/api-docs`);
+    console.log(`OpenAI Plugin Manifest: http://localhost:${port}/.well-known/ai-plugin.json`);
+    console.log(`OpenAPI Spec: http://localhost:${port}/openapi.yaml`);
     console.log(
       `Tokens Endpoint: http://localhost:${port}/nft-indexer/v1/tokens`
     );
