@@ -47,13 +47,20 @@ const args = minimist(process.argv.slice(2));
 const port = args.p || process.env.API_SERVER_PORT || 3000;
 
 // Serve .well-known and openapi.yaml as static files for OpenAI plugin discovery
+const wellKnownPath = path.join(process.cwd(), "api/.well-known");
+const openapiPath = path.join(process.cwd(), "api/openapi.yaml");
+
+console.log("Static file paths:");
+console.log("Well-known path:", wellKnownPath);
+console.log("OpenAPI path:", openapiPath);
+
 app.use(
   "/.well-known",
-  express.static(path.join(process.cwd(), "api/.well-known"))
+  express.static(wellKnownPath)
 );
 app.use(
   "/openapi.yaml",
-  express.static(path.join(process.cwd(), "api/openapi.yaml"))
+  express.static(openapiPath)
 );
 
 const endpoints = [
