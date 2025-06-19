@@ -221,7 +221,7 @@ const getToken = async (ci, contractId) => {
     // calculate apr
     const vol = volA.plus(volB);
     const tvl = tvlA.plus(tvlB);
-    const weeklyFees = vol.multipliedBy(new BigNumber(99)).dividedBy(new BigNumber(10000)) // using 0.3% fee
+    const weeklyFees = vol.multipliedBy(new BigNumber(99)).dividedBy(new BigNumber(10000)) // using 0.99% fee
     const fees = weeklyFees.multipliedBy(52); // annualized
     const apr = fees.dividedBy(tvl).multipliedBy(new BigNumber(100)).toFixed(2);
     // get supply
@@ -403,7 +403,8 @@ const doIndex = async (app, round) => {
   if (lastSyncRound <= round) {
     // get transaction history since lastSyncRound
     const events = await ci.getEvents({
-      minRound: lastSyncRound,
+      //minRound: lastSyncRound,
+      minRound: round,
       maxRound: round,
     });
     await onTransfer(ci, events);

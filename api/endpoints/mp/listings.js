@@ -301,7 +301,7 @@ export const listingsEndpoint = async (req, res, db) => {
         row.mpListingId = Number(row.mpListingId);
         row.collectionId = Number(row.contractId);
         row.createRound = Number(row.createRound);
-        row.tokenId = Number(row.tokenId);
+        row.tokenId = String(row.tokenId);
         row.price = Number(row.price);
         row.currency = Number(row.currency);
         row.createRound = Number(row.createRound);

@@ -11,6 +11,21 @@ function stripNullBytes(input) {
     return input.replace(/\0/g, '');
 }
 
+function bigIntToUint8Array(value) {
+    if (value < 0n) {
+        throw new Error("Value must be non-negative.");
+    }
+    if (value >= 2n ** 256n) {
+        throw new Error("Value exceeds 32 bytes.");
+    }
+
+    const byteArray = new Uint8Array(32);
+    for (let i = 0; i < 32; i++) {
+        byteArray[31 - i] = Number((value >> BigInt(i * 8)) & 0xFFn);
+    }
+    return byteArray;
+}
+
 // makeContract
 //  - returns arc72 contract instance
 const makeContract = (contractId) =>
@@ -69,6 +84,13 @@ const getCollection = async (ci, contractId) => {
 const onMint = async (ci, event) => {
   console.log("MINT");
   const contractId = ci.getContractId();
+
+
+  if(contractId === 797610) {
+    console.log("reverse registrar. skipping...");
+    return;
+  }
+
   const { round, to, tokenId } = getTransferEvent(event);
   const tokenIndex = 0; // not sure what this does
   const owner = to;
@@ -87,11 +109,39 @@ const onMint = async (ci, event) => {
 
   console.log("fetchURI", fetchURI);
 
-  const metadata = metadataURI ? await fetch(fetchURI).then((res) => res.json()).catch(() => {}) || "{}" : "{}";
+  let metadata = metadataURI ? await fetch(fetchURI).then((res) => res.json()).catch(() => {}) || "{}" : "{}";
 
   console.log("metadata", metadata);
  
-  
+
+  const ciResolver = new CONTRACT(
+	  797608, // TODO switch based on network config
+	  algodClient,
+	  indexerClient,
+	  {
+		  name: "resolver",
+		  description: "resolver",
+		  methods: [
+			  // name(byte[32])byte[256]
+			{
+				name: "name",
+				args: [
+					{ type: "byte[32]" }
+				],
+				returns: { type: "byte[256]" }
+	  		}
+		  ],
+		  events: []
+	  })
+
+  const nameR = await ciResolver.name(
+	  bigIntToUint8Array(tokenId)
+  )
+
+  if(nameR.success && metadata.name) {
+	metadata.name = stripNullBytes(nameR.returnValue);
+  }
+
   const totalSupply = (await ci.arc72_totalSupply()).returnValue;
   const approved = ZERO_ADDRESS;
   const mintRound = round;
@@ -222,7 +272,8 @@ const doIndex = async (app, round) => {
   // get transaction history since lastSyncRound
   if (lastSyncRound <= round) {
     const events = await ci.getEvents({
-      minRound: lastSyncRound,
+      //minRound: lastSyncRound,
+      minRound: round,
       maxRound: round,
     });
     await onTransfer(ci, events);

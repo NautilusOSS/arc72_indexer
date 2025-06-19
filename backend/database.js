@@ -573,6 +573,48 @@ GROUP BY
         return result;
     }
 
+
+
+    async insertOrUpdateOfferListing({ transactionId, mpContractId, mpListingId, contractId, tokenId, offerer, price, currency, createRound, createTimestamp, accept_id, delete_id }) {
+        const updateSQL = `UPDATE offer_listings
+                            SET mpContractId = ?, mpListingId = ?, contractId = ?, tokenId = ?, offerer = ?, price = ?, currency = ?, createRound = ?, createTimestamp = ?, accept_id = ?, delete_id = ?
+                            WHERE transactionId = ?`;
+        const result = await this.run(
+            updateSQL,
+            [String(mpContractId), String(mpListingId), String(contractId), String(tokenId), offerer, price, currency, createRound, createTimestamp, accept_id, delete_id, transactionId]
+        );
+
+        if (result.changes === 0) {
+            const insertSQL = `INSERT INTO offer_listings (transactionId, mpContractId, mpListingId, contractId, tokenId, offerer, price, currency, createRound, createTimestamp, accept_id, delete_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+            return await this.run(
+                insertSQL,
+                [transactionId, String(mpContractId), String(mpListingId), String(contractId), String(tokenId), offerer, price, currency, createRound, createTimestamp, accept_id, delete_id]
+            );
+        }
+        return result;
+    }
+
+   async insertOrUpdateOfferAccept({ transactionId, mpContractId, mpListingId, contractId, tokenId, offerer, accepter, currency, price, round, timestamp }) {
+        const result = await this.run(
+            `
+            UPDATE offer_accepts
+            SET contractId = ?, tokenId = ?, accepter = ?, round = ?, timestamp = ?
+            WHERE transactionId = ?
+            `,
+            [contractId, String(tokenId), accepter, Number(round), Number(timestamp), transactionId]
+        );
+
+        if (result.changes === 0) {
+            return await this.run(
+                `
+                INSERT INTO offer_accepts (transactionId, mpContractId, mpListingId, contractId, tokenId, accepter, round, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                `,
+                [transactionId, String(mpContractId), String(mpListingId), String(contractId), String(tokenId), accepter, Number(round), Number(timestamp)]
+            );
+        }
+        return result;
+    }
+
     async insertOrUpdateMarketSale({ transactionId, mpContractId, mpListingId, contractId, tokenId, seller, buyer, currency, price, round, timestamp }) {
         const result = await this.run(
             `
@@ -595,6 +637,30 @@ GROUP BY
         return result;
     }
 
+
+    async insertOrUpdateOfferDelete({ transactionId, mpContractId, mpListingId, contractId, tokenId, deleter, round, timestamp }) {
+        const result = await this.run(
+            `
+            UPDATE offer_deletes 
+            SET contractId = ?, tokenId = ?, deleter = ?, round = ?, timestamp = ?
+            WHERE transactionId = ?
+            `,
+            [contractId, String(tokenId), deleter, round, timestamp, transactionId]
+        );
+    
+        if (result.changes === 0) {
+            return await this.run(
+                `
+                INSERT INTO offer_deletes (transactionId, mpContractId, mpListingId, contractId, tokenId, deleter, round, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                `,
+                [transactionId, String(mpContractId), String(mpListingId), String(contractId), String(tokenId), deleter, round, timestamp]
+            );
+        } 
+        return result;
+    }
+    
+
+
     async insertOrUpdateMarketDelete({ transactionId, mpContractId, mpListingId, contractId, tokenId, owner, round, timestamp }) {
         const result = await this.run(
             `
@@ -615,6 +681,12 @@ GROUP BY
         }
         return result;
     }
+
+
+    // get listing by contractId and listingId
+    async getOfferListing(mpContractId, mpListingId) {
+        return await this.get("SELECT * FROM offer_listings WHERE mpContractId = ? AND mpListingId = ?", [String(mpContractId), String(mpListingId)]);
+    } 
 
     // get listing by contractId and listingId
     async getMarketListing(mpContractId, mpListingId) {

@@ -1,6 +1,6 @@
 /**
  * @swagger
- * /nft-indexer/v1/mp/sales:
+ * /nft-indexer/v1/mp/volumes:
  *  get:
  *   summary: Retrieves marketplace sales
  *   description: Fetch marketplace sales details based on query parameters (this is a NON-STANDARD endpoint)
@@ -101,7 +101,7 @@
  *     500:
  *       description: Server error 
  */
-export const salesEndpoint = async (req, res, db) => {
+export const saleVolumesEndpoint = async (req, res, db) => {
     let response = {};
 
     db.db.get(`SELECT value FROM info WHERE key='syncRound'`, [], (err, row) => {
@@ -127,121 +127,84 @@ export const salesEndpoint = async (req, res, db) => {
     const tokenId = req.query.tokenId;
     const seller = req.query.seller;
     const buyer = req.query.buyer;
-    const minRound = req.query['min-round']??0;
-    const maxRound = req.query['max-round'];
-    const minPrice = req.query['min-price'];
-    const maxPrice = req.query['max-price'];
-    const minTime = req.query['min-time'];
-    const maxTime = req.query['max-time'];
     const currency = req.query.currency;
     const next = req.query.next??0;
     const limit = req.query.limit;
     const sort = req.query.sort;
 
     // Construct SQL query
-    let query = `SELECT * FROM sales`;
+    let query = `
+WITH transactions AS (
+    SELECT
+        s.contractId,
+        SUM(CASE 
+            WHEN s.timestamp >= strftime('%s', 'now', '-1 day') THEN CAST(s.price AS NUMERIC) 
+            ELSE 0 
+        END) AS vol24h,
+        SUM(CASE 
+            WHEN s.timestamp >= strftime('%s', 'now', '-7 days') THEN CAST(s.price AS NUMERIC) 
+            ELSE 0 
+        END) AS vol7d,
+        SUM(CASE 
+            WHEN s.timestamp >= strftime('%s', 'now', '-30 days') THEN CAST(s.price AS NUMERIC) 
+            ELSE 0 
+        END) AS vol30,
+        SUM(CAST(s.price AS NUMERIC)) AS alltime
+    FROM
+        sales s
+    GROUP BY
+        s.contractId
+),
+floors AS (
+    SELECT
+        l.contractId,
+        MIN(CAST(l.price AS NUMERIC)) AS floor
+    FROM
+        listings l
+    WHERE
+        l.delete_id IS NULL -- Exclude deleted listings
+    GROUP BY
+        l.contractId
+),
+approved_tokens AS (
+    SELECT DISTINCT
+        t.contractId
+    FROM
+        tokens t
+    WHERE
+        t.approved = 'C4NGXXA22RGBDDHVR4CXC6YPGYL4KC2RSCOKLOOBDR6IEKYSJYPJX3HJZE'
+)
+SELECT
+    c.contractId,
+    COALESCE(t.vol24h, 0) AS vol24h,
+    COALESCE(t.vol7d, 0) AS vol7d,
+    COALESCE(t.vol30, 0) AS vol30,
+    COALESCE(t.alltime, 0) AS alltime,
+    COALESCE(f.floor, 0) AS floor
+FROM
+    collections c
+LEFT JOIN
+    transactions t ON c.contractId = t.contractId
+LEFT JOIN
+    floors f ON c.contractId = f.contractId
+INNER JOIN
+    approved_tokens a ON c.contractId = a.contractId;
+`;
     let conditions = [];
     let params = {};
 
-    if (transactionId) {
-        conditions.push(`transactionId = $transactionId`);
-        params.$transactionId = transactionId;
-    }
-
-    if (mpContractId) {
-        conditions.push(`mpContractId = $mpContractId`);
-        params.$mpContractId = mpContractId;
-
-        if (mpListingId) {
-            conditions.push(`mpListingId = $mpListingId`);
-            params.$mpListingId = mpListingId;
-        }
-    }
-
     if (collectionId) {
         if (Array.isArray(collectionId)) {
-            conditions.push(`contractId IN (${collectionId.map((_, i) => `$collectionId${i}`).join(',')})`);
+            conditions.push(`c.contractId IN (${collectionId.map((_, i) => `$collectionId${i}`).join(',')})`);
             collectionId.forEach((c, i) => {
                 params[`$collectionId${i}`] = c;
             });
         } else {
-            conditions.push(`contractId = $collectionId`);
+            conditions.push(`c.contractId = $collectionId`);
             params.$collectionId = collectionId;
-        }
-
-        if (tokenId) {
-            if (Array.isArray(tokenId)) {
-                conditions.push(`tokenId IN (${tokenId.map((_, i) => `$tokenId${i}`).join(',')})`);
-                tokenId.forEach((t, i) => {
-                    params[`$tokenId${i}`] = t;
-                });
-            }
-            else {
-                conditions.push(`tokenId = $tokenId`);
-                params.$tokenId = tokenId;
-            }
-        }
-    }
-
-    if (seller) {
-        if (Array.isArray(seller)) {
-            conditions.push(`seller IN (${seller.map((_, i) => `$seller${i}`).join(',')})`);
-            seller.forEach((s, i) => {
-                params[`$seller${i}`] = s;
-            });
-        } else {
-            conditions.push(`seller = $seller`);
-            params.$seller = seller;
-        }
-    }
-
-    if (buyer) {
-        if (Array.isArray(buyer)) {
-            conditions.push(`buyer IN (${buyer.map((_, i) => `$buyer${i}`).join(',')})`);
-            buyer.forEach((b, i) => {
-                params[`$buyer${i}`] = b;
-            });
-        } else {
-            conditions.push(`buyer = $buyer`);
-            params.$buyer = buyer;
         }
     }
     
-    if (minRound) {
-        conditions.push(`round >= $minRound`);
-        params.$minRound = minRound;
-    }
-
-    if (maxRound) {
-        conditions.push(`round <= $maxRound`);
-        params.$maxRound = maxRound;
-    }
-
-    if (minPrice) {
-        conditions.push(`price >= $minPrice`);
-        params.$minPrice = minPrice;
-    }
-
-    if (maxPrice) {
-        conditions.push(`price <= $maxPrice`);
-        params.$maxPrice = maxPrice;
-    }
-
-    if (minTime) {
-        conditions.push(`timestamp >= $minTime`);
-        params.$minTime = minTime;
-    }
-
-    if (maxTime) {
-        conditions.push(`timestamp <= $maxTime`);
-        params.$maxTime = maxTime;
-    }
-
-    if (currency) {
-        conditions.push(`currency = $currency`);
-        params.$currency = currency;
-    }
-
     if (next) {
         conditions.push(`round >= $next`);
         params.$next = next;
@@ -284,33 +247,12 @@ export const salesEndpoint = async (req, res, db) => {
     for(let i = 0; i < rows.length; i++) {
         const row = rows[i];
 
-        row.mpContractId = Number(row.mpContractId);
-        row.mpListingId = Number(row.mpListingId);
-        row.collectionId = Number(row.contractId);
-        row.tokenId = String(row.tokenId);
-        row.price = Number(row.price);
-        row.currency = Number(row.currency);
-        row.round = Number(row.round);
-        
-        row.listing = await db.get(`SELECT * FROM listings WHERE sales_id = ?`, [row.transactionId]);
-        if (row.listing) {
-            row.listing.mpContractId = Number(row.listing.mpContractId);
-            row.listing.mpListingId = Number(row.listing.mpListingId);
-            row.listing.collectionId = Number(row.listing.contractId);
-            row.listing.createRound = Number(row.listing.createRound);
-            row.listing.tokenId = String(row.listing.tokenId);
-            row.listing.price = Number(row.listing.price);
-            row.listing.currency = Number(row.listing.currency);
-            row.listing.createRound = Number(row.listing.createRound);
-    
-            delete row.listing.sales_id;
-            delete row.listing.delete_id;
-            delete row.listing.contractId;
-        }
-
-	row.token = await db.get(`SELECT * FROM tokens WHERE contractId = ? AND tokenId = ?`, [row.contractId, row.tokenId]) ?? null;
-
-        delete row.contractId;
+        row.contractId = Number(row.contractId);
+	row.vol24h = String(row.vol24h);
+	row.vol7d = String(row.vol7d);
+	row.vol30d = String(row.vol30d);
+	row.alltime = String(row.alltime);
+	row.floor = String(row.floor);
     }
 
     let mRound = 0;
@@ -318,7 +260,7 @@ export const salesEndpoint = async (req, res, db) => {
         mRound = rows[rows.length-1].round;
     }
 
-    response.sales = rows
+    response.volumes = rows
     response['next-token'] = mRound+1;
     res.status(200).json(response);
 

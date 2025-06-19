@@ -189,14 +189,18 @@ export const tokensEndpoint = async (req, res, db) => {
         //rows.forEach((row) => {
             delete row.tokenIndex;
             row.contractId = Number(row.contractId);
-            row.tokenId = Number(row.tokenId);
+            row.tokenId = row.tokenId.toString();
             row['mint-round'] = row.mintRound;
             delete row.mintRound;
 
     	    const staking = await db.get(`SELECT * FROM contract_scsc WHERE contractId = ?`, [row.tokenId]) ?? null;
 
 	    const metadata = JSON.parse(row.metadata || "{}");
-	    const collectionName = metadata.name ? String(metadata.name).replace(/[ ]?[#]?[0-9]*$/, "") : "Unknown";
+
+	    // TODO use collection name from collections table instead of resolving from nft name
+	    const collectionName = row.contractId === 797609
+			? ".voi" 
+			: metadata.name ? String(metadata.name).replace(/[ ]?[#]?[0-9]*$/, "") : "Unknown";
 	    row.collectionName = collectionName;
 
             // if a round is provided, find the owner at that round based on the last transfer that occurred on or before `round`

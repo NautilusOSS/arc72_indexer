@@ -176,7 +176,7 @@ export const collectionsEndpoint = async (req, res, db) => {
         if (tokens) {
             row.firstToken = {
                 contractId: Number(tokens.contractId),
-                tokenId: Number(tokens.tokenId),
+                tokenId: String(tokens.tokenId),
                 owner: tokens.owner,
                 metadataURI: tokens.metadataURI,
                 metadata: tokens.metadata,

@@ -1,40 +1,40 @@
 /**
  * @swagger
- * /nft-indexer/v1/mp/sales:
+ * /nft-indexer/v1/mp/offers:
  *  get:
- *   summary: Retrieves marketplace sales
- *   description: Fetch marketplace sales details based on query parameters (this is a NON-STANDARD endpoint)
+ *   summary: Retrieves marketplace listings
+ *   description: Fetch marketplace listing details based on query parameters (this is a NON-STANDARD endpoint)
  *   parameters:
  *     - in: query
  *       name: mpContractId
  *       schema:
  *         type: integer
- *         description: Limit to only the sales with the given Marketplace contractId
+ *         description: Limit to only the listings with the given Marketplace contractId
  *     - in: query
  *       name: mpListingId
  *       schema:
  *         type: integer
- *         description: Limit to only the sales with the given Marketplace listingId (requires mpContractId)
+ *         description: Limit to only the listings with the given Marketplace listingId (requires mpContractId)
  *     - in: query
  *       name: collectionId
  *       schema:
  *         type: integer
- *         description: Limit to only the sales with the given collectionId (also accepts array of integers)
+ *         description: Limit to only the listings with the given collectionId (also accepts array of integers)
  *     - in: query
  *       name: tokenId
  *       schema:
  *         type: integer
- *         description: Limit to only the sales with the given tokenId (requires collectionId) (also accepts array of integers)
+ *         description: Limit to only the listings with the given tokenId (requires collectionId) (also accepts array of integers)
  *     - in: query
  *       name: seller
  *       schema:
  *         type: string
- *         description: Limit to only the sales with the given seller (also accepts array of strings)
+ *         description: Limit to only the listings with the given seller
  *     - in: query
- *       name: buyer
+ *       name: escrow-addr
  *       schema:
  *         type: string
- *         description: Limit to only the sales with the given buyer (also accepts array of strings)
+ *         description: Limit to only the listings on marketplaces with the given escrow address
  *     - in: query
  *       name: min-round
  *       schema:
@@ -49,32 +49,42 @@
  *       name: min-price
  *       schema:
  *         type: integer
- *         description: Limit to only the sales with the price greater than or equal to the given price
+ *         description: Limit to only the listings with the price greater than or equal to the given price
  *     - in: query
  *       name: max-price
  *       schema:
  *         type: integer
- *         description: Limit to only the sales with the price less than or equal to the given price
- *     - in: query
+ *         description: Limit to only the listings with the price less than or equal to the given price
+  *     - in: query
  *       name: min-time
  *       schema:
  *         type: integer
- *         description: Limit to only the sales which occurred on or after the given timestamp
+ *         description: Limit to only the listings which occurred on or after the given timestamp
  *     - in: query
  *       name: max-time
  *       schema:
  *         type: integer
- *         description: Limit to only the sales which occurred on or before the given timestamp
- *     - in: query
- *       name: sort
- *       schema:
- *         type: string
- *         description: "Sort by a given field, currently supports 'round'. Use '-' to sort in descending order. Example: sort=-round. NOTE: next token does not work with this option."
- *     - in: query
+ *         description: Limit to only the listings which occurred on or before the given timestamp
+*     - in: query
  *       name: currency
  *       schema:
  *         type: string
- *         description: Limit to only the sales with the given currency
+ *         description: Limit to only the listings with the given currency
+ *     - in: query
+ *       name: active
+ *       schema:
+ *         type: boolean
+ *         description: Limit to only the active listings
+ *     - in: query
+ *       name: sold
+ *       schema:
+ *         type: boolean
+ *         description: Limit to only sold listings
+ *     - in: query
+ *       name: deleted
+ *       schema:
+ *         type: boolean
+ *         description: Limit to only deleted listings
  *     - in: query
  *       name: next
  *       schema:
@@ -91,7 +101,7 @@
  *               listings:
  *                 type: array
  *                 items:
- *                   $ref: '#/components/schemas/Sale'
+ *                   $ref: '#/components/schemas/Listing'
  *               current-round:
  *                 type: integer
  *               next-token:
@@ -101,7 +111,7 @@
  *     500:
  *       description: Server error 
  */
-export const salesEndpoint = async (req, res, db) => {
+export const offersEndpoint = async (req, res, db) => {
     let response = {};
 
     db.db.get(`SELECT value FROM info WHERE key='syncRound'`, [], (err, row) => {
@@ -125,8 +135,8 @@ export const salesEndpoint = async (req, res, db) => {
     const mpListingId = req.query.mpListingId;
     const collectionId = req.query.collectionId;
     const tokenId = req.query.tokenId;
-    const seller = req.query.seller;
-    const buyer = req.query.buyer;
+    const offerer = req.query.offerer;
+    const owner = req.query.owner;
     const minRound = req.query['min-round']??0;
     const maxRound = req.query['max-round'];
     const minPrice = req.query['min-price'];
@@ -134,116 +144,124 @@ export const salesEndpoint = async (req, res, db) => {
     const minTime = req.query['min-time'];
     const maxTime = req.query['max-time'];
     const currency = req.query.currency;
+    const active = req.query['active'];
     const next = req.query.next??0;
     const limit = req.query.limit;
-    const sort = req.query.sort;
 
     // Construct SQL query
-    let query = `SELECT * FROM sales`;
+    let query = `
+ SELECT 
+    ol.*,
+    t.owner,
+    CASE 
+        WHEN ol.accept_id IS NULL AND ol.delete_id IS NULL THEN TRUE 
+        ELSE FALSE 
+    END AS active
+FROM offer_listings ol
+JOIN tokens t ON ol.contractId = t.contractId AND ol.tokenId = t.tokenId
+    `;
     let conditions = [];
     let params = {};
 
     if (transactionId) {
-        conditions.push(`transactionId = $transactionId`);
+        conditions.push(`ol.transactionId = $transactionId`);
         params.$transactionId = transactionId;
     }
 
+    if (owner) {
+        conditions.push(`t.owner = $owner`);
+        params.$owner = owner;
+    }
+
     if (mpContractId) {
-        conditions.push(`mpContractId = $mpContractId`);
-        params.$mpContractId = mpContractId;
+        conditions.push(`ol.mpContractId = $contractId`);
+        params.$contractId = mpContractId;
 
         if (mpListingId) {
-            conditions.push(`mpListingId = $mpListingId`);
-            params.$mpListingId = mpListingId;
+            conditions.push(`ol.mpListingId = $listingId`);
+            params.$listingId = mpListingId;
         }
     }
 
     if (collectionId) {
         if (Array.isArray(collectionId)) {
-            conditions.push(`contractId IN (${collectionId.map((_, i) => `$collectionId${i}`).join(',')})`);
+            conditions.push(`ol.contractId IN (${collectionId.map((_, i) => `$collectionId${i}`).join(',')})`);
             collectionId.forEach((c, i) => {
                 params[`$collectionId${i}`] = c;
             });
         } else {
-            conditions.push(`contractId = $collectionId`);
+            conditions.push(`ol.contractId = $collectionId`);
             params.$collectionId = collectionId;
         }
 
         if (tokenId) {
             if (Array.isArray(tokenId)) {
-                conditions.push(`tokenId IN (${tokenId.map((_, i) => `$tokenId${i}`).join(',')})`);
+                conditions.push(`ol.tokenId IN (${tokenId.map((_, i) => `$tokenId${i}`).join(',')})`);
                 tokenId.forEach((t, i) => {
                     params[`$tokenId${i}`] = t;
                 });
             }
             else {
-                conditions.push(`tokenId = $tokenId`);
+                conditions.push(`ol.tokenId = $tokenId`);
                 params.$tokenId = tokenId;
             }
         }
     }
 
-    if (seller) {
-        if (Array.isArray(seller)) {
-            conditions.push(`seller IN (${seller.map((_, i) => `$seller${i}`).join(',')})`);
-            seller.forEach((s, i) => {
-                params[`$seller${i}`] = s;
+    if (offerer) {
+        if (Array.isArray(offerer)) {
+            conditions.push(`ol.offerer IN (${offerer.map((_, i) => `$offerer${i}`).join(',')})`);
+            offerer.forEach((s, i) => {
+                params[`$offerer${i}`] = s;
             });
         } else {
-            conditions.push(`seller = $seller`);
-            params.$seller = seller;
+            conditions.push(`offerer = $offerer`);
+            params.$offerer = offerer;
         }
     }
 
-    if (buyer) {
-        if (Array.isArray(buyer)) {
-            conditions.push(`buyer IN (${buyer.map((_, i) => `$buyer${i}`).join(',')})`);
-            buyer.forEach((b, i) => {
-                params[`$buyer${i}`] = b;
-            });
-        } else {
-            conditions.push(`buyer = $buyer`);
-            params.$buyer = buyer;
-        }
-    }
-    
+
     if (minRound) {
-        conditions.push(`round >= $minRound`);
+        conditions.push(`ol.createRound >= $minRound`);
         params.$minRound = minRound;
     }
 
     if (maxRound) {
-        conditions.push(`round <= $maxRound`);
+        conditions.push(`ol.createRound <= $maxRound`);
         params.$maxRound = maxRound;
     }
 
     if (minPrice) {
-        conditions.push(`price >= $minPrice`);
+        conditions.push(`ol.price >= $minPrice`);
         params.$minPrice = minPrice;
     }
 
     if (maxPrice) {
-        conditions.push(`price <= $maxPrice`);
+        conditions.push(`ol.price <= $maxPrice`);
         params.$maxPrice = maxPrice;
     }
 
     if (minTime) {
-        conditions.push(`timestamp >= $minTime`);
+        conditions.push(`ol.createTimestamp >= $minTime`);
         params.$minTime = minTime;
     }
 
     if (maxTime) {
-        conditions.push(`timestamp <= $maxTime`);
+        conditions.push(`ol.createTimestamp <= $maxTime`);
         params.$maxTime = maxTime;
     }
 
     if (currency) {
-        conditions.push(`currency = $currency`);
+        conditions.push(`ol.currency = $currency`);
         params.$currency = currency;
     }
 
+    if (active) {
+        conditions.push(`ol.accept_id IS NULL AND ol.delete_id IS NULL`);
+    }
+
     if (next) {
-        conditions.push(`round >= $next`);
+        conditions.push(`ol.createRound >= $next`);
         params.$next = next;
     }
 
@@ -251,26 +269,7 @@ export const salesEndpoint = async (req, res, db) => {
         query += ` WHERE ` + conditions.join(' AND ');
     }
 
-    const allowedColumns = ['round'];
-
-    if (sort) {
-        let direction = 'ASC';
-        let column = sort;
-
-        // If the sort string starts with a hyphen, remove it and set direction to 'DESC'
-        if (sort.startsWith('-')) {
-            column = sort.substring(1);
-            direction = 'DESC';
-        }
-
-        if (allowedColumns.includes(column)) {
-            query += ` ORDER BY ${column} ${direction}`;
-        } else {
-            ` ORDER BY round ASC`;
-        }
-    } else {
-        query += ` ORDER BY round ASC`;
-    }
+    query += ` ORDER BY createRound ASC`;
 
     if (limit) {
         query += ` LIMIT $limit`;
@@ -281,44 +280,29 @@ export const salesEndpoint = async (req, res, db) => {
     const rows = await db.all(query, params);
 
     // for all rows, change remove tokenIndex and change mintRound to mint-round
+    let listings = [];
     for(let i = 0; i < rows.length; i++) {
         const row = rows[i];
 
         row.mpContractId = Number(row.mpContractId);
         row.mpListingId = Number(row.mpListingId);
         row.collectionId = Number(row.contractId);
+        row.createRound = Number(row.createRound);
+	row.contractId = Number(row.contractId);
         row.tokenId = String(row.tokenId);
         row.price = Number(row.price);
         row.currency = Number(row.currency);
-        row.round = Number(row.round);
-        
-        row.listing = await db.get(`SELECT * FROM listings WHERE sales_id = ?`, [row.transactionId]);
-        if (row.listing) {
-            row.listing.mpContractId = Number(row.listing.mpContractId);
-            row.listing.mpListingId = Number(row.listing.mpListingId);
-            row.listing.collectionId = Number(row.listing.contractId);
-            row.listing.createRound = Number(row.listing.createRound);
-            row.listing.tokenId = String(row.listing.tokenId);
-            row.listing.price = Number(row.listing.price);
-            row.listing.currency = Number(row.listing.currency);
-            row.listing.createRound = Number(row.listing.createRound);
-    
-            delete row.listing.sales_id;
-            delete row.listing.delete_id;
-            delete row.listing.contractId;
-        }
+        row.createRound = Number(row.createRound);
 
-	row.token = await db.get(`SELECT * FROM tokens WHERE contractId = ? AND tokenId = ?`, [row.contractId, row.tokenId]) ?? null;
-
-        delete row.contractId;
+        listings.push(row);
     }
 
     let mRound = 0;
-    if (rows.length > 0) {
-        mRound = rows[rows.length-1].round;
+    if (listings.length > 0) {
+        mRound = listings[listings.length-1].createRound;
     }
 
-    response.sales = rows
+    response['offers'] = listings;
     response['next-token'] = mRound+1;
     res.status(200).json(response);
 

@@ -88,7 +88,6 @@ export const arc200TransfersEndpoint = async (req, res, db) => {
     // Extract query parameters
     const round = req.query.round;
     const next = req.query.next??0;
-    const limit = req.query.limit??1000;
     const contractId = req.query.contractId;
     const user = req.query.user;
     const from = req.query.from;
@@ -97,6 +96,8 @@ export const arc200TransfersEndpoint = async (req, res, db) => {
     const maxRound = req.query['max-round'];
     let minTimestamp = req.query['min-timestamp']??0;
     const maxTimestamp = req.query['max-timestamp'];
+    const limit = req.query.limit??1000;
+    const offset = req.query.offset;
 
     if (next.length > 0) minRound = Math.max(Number(next), Number(minRound));
     
@@ -150,12 +151,16 @@ export const arc200TransfersEndpoint = async (req, res, db) => {
         query += ' WHERE ' + conditions.join(' AND ');
     }
 
-    query += ' ORDER BY round ASC';
+    query += ' ORDER BY round DESC';
 
     // Add limit and pagination logic (if applicable)
     if (limit > 0) {
         query += ' LIMIT $limit';
         params.$limit = limit;
+	if(offset) {
+          query += ' OFFSET $offset';
+          params.$offset = offset;
+	}
     }
 
     // Execute query

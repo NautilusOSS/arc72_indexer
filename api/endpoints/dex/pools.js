@@ -129,7 +129,7 @@ export const dexPoolsEndpoint = async (req, res, db) => {
 SELECT 
     p.*,
     cA.decimals as tokADecimals,
-    cB.decimals as tokADecimals,
+    cB.decimals as tokBDecimals,
     CASE
      WHEN CAST(tvlA AS REAL) < CAST(tvlB AS REAL) THEN CAST(tvlA as REAL) * 2
      ELSE CAST(tvlB as REAL) * 2
