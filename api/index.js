@@ -47,8 +47,8 @@ const args = minimist(process.argv.slice(2));
 const port = args.p || process.env.API_SERVER_PORT || 3000;
 
 // Serve .well-known and openapi.yaml as static files for OpenAI plugin discovery
-const wellKnownPath = path.join(process.cwd(), "api/.well-known");
-const openapiPath = path.join(process.cwd(), "api/openapi.yaml");
+const wellKnownPath = path.join(process.cwd(), ".well-known");
+const openapiPath = path.join(process.cwd(), "openapi.yaml");
 
 console.log("Static file paths:");
 console.log("Well-known path:", wellKnownPath);
