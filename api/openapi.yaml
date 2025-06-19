@@ -15,10 +15,10 @@ info:
     Note: The current server points to the Mainnet Network.
     
     The full source and additional links are available at 
-    https://github.com/xarmian/arc72_indexer
+    https://github.com/NautilusOSS/arc72_indexer
     
-    A reference application is available at https://nftnavigator.xyz with source
-    available at https://github.com/xarmian/nft_navigator
+    A reference application is available at https://nautilus.sh with source
+    available at https://github.com/NautilusOSS/nft_navigator
   version: 1.0.0
 servers:
   - url: https://mainnet-idx.nautilus.sh
